@@ -1,12 +1,16 @@
-var r = require('redis').createClient();
-var _ = require('underscore');
 var fs = require('fs');
+var redis = require('redis');
+var _ = require('underscore');
 
 // prefixes for redis sets
 // use applicationPrefix() to set the initial prefix
 var _appPrefix = '';
 var ZKEY_COMPL = 'compl';
 var ZKEY_DOCS_PREFIX = 'docs:';
+
+module.exports.createClient = function() {
+  return module.exports.client || (module.exports.client = redis.createClient());
+};
 
 module.exports.applicationPrefix = applicationPrefix = function(prefix) {
   // update key prefixes with user-specified application prefix
@@ -16,6 +20,7 @@ module.exports.applicationPrefix = applicationPrefix = function(prefix) {
 };
 
 module.exports.deleteAll = deleteAll = function(cb) {
+  var r = module.exports.createClient();
   // clear all data
   r.zremrangebyrank(ZKEY_COMPL, 0, -1, cb);
 }
@@ -43,6 +48,7 @@ module.exports.addCompletions = addCompletions = function (phrase, id, score, cb
     phraseToStore = phrase;
   }
 
+  var r = module.exports.createClient();
   _.each(text.split(/\s+/), function(word) {
     for (var end_index=1; end_index <= word.length; end_index++) {
       var prefix = word.slice(0, end_index);
@@ -80,6 +86,7 @@ module.exports.getWordCompletions = getWordCompletions = function(word, count, c
     return callback(null, results);
   }
 
+  var r = module.exports.createClient();
   r.zrank(ZKEY_COMPL, prefix, function(err, start) {
     if (! start) {
       return callback(null, results);
@@ -156,6 +163,7 @@ module.exports.search = search = function(phrase, count, callback) {
   var count = count || 10;
   var callback = callback || function() {};
 
+  var r = module.exports.createClient();
   getPhraseCompletions(phrase, count, function(err, completions) {
     if (err) {
       callback(err, null);
